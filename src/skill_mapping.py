@@ -113,9 +113,7 @@ def map_skills(
             # The skill is described and evidence is available.
             status = "Proven"
             strength = "Strong"
-
-            # Use L3 for a detailed description; otherwise use L2.
-            level = ("L3" if len(source.split()) >= 20 else "L2")
+            level = "L3" 
 
             reason = ("The skill is described in the work and supporting evidence is available.")
 

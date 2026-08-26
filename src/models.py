@@ -5,35 +5,6 @@ from enum import Enum
 # Field provides defaults and basic validation.
 from pydantic import BaseModel, Field, field_validator
 
-
-class ProofStatus(str, Enum):
-    # possible evidence-proof categories.
-    PROVEN = "Proven"
-    IMPLIED = "Implied"
-    CLAIMED = "Claimed"
-    UNPROVEN = "Unproven"
-
-class Project(BaseModel):
-    # Store the name and description of a project.
-    name: str = ""
-    description: str = ""
-
-class CandidateEvidence(BaseModel):
-    # Unique ID, role the candidate applied for, target domain, skills, work experience, project information,
-    # existing proof, such as reports, certificates or GitHub links, measurable result, such as
-    #  "Reduced processing time by 20%", and explains how AI was used in the candidate's work.
-
-    id: str
-    target_role: str
-    target_domain: str
-    claimed_skills: list[str]
-    experience: str
-    project: Project
-    evidence: list[str] = Field(default_factory=list)
-    impact: str = ""
-    ai_usage: str = "None"
-
-
 class ProofInput(BaseModel):
     # Target role must contain at least two characters.
     target_role: str = Field(min_length=2)
@@ -96,6 +67,7 @@ class ExtractedEvidence(BaseModel):
     demonstrated_skills: list[str] = Field(default_factory=list)
 
     # Candidate's level of ownership.
+    # ownership describes how much responsibility and control the candidate had over the work.
     ownership: str = "Unknown"
 
     # Information that was not clearly provided.

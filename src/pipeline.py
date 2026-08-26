@@ -9,14 +9,10 @@ from src.skill_mapping import map_skills
 from src.storage import save_artifact
 
 
-def run_proof_pipeline(record=None, **kwargs):
+def run_proof_pipeline(record):
     # Run the complete Proof Builder pipeline.
 
-    # If individual keyword values are supplied, treat them as the input record.
-    if record is None:
-        record = kwargs
-
-    # Validate the input unless it is already a ProofInput object.
+    #  if record is not in ProofInput object, Validate the input 
     if not isinstance(record, ProofInput):
         record = ProofInput.model_validate(record)
 

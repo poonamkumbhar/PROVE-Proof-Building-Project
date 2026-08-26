@@ -108,7 +108,6 @@ INPUT:
     # on the LLM's interpretation.
 
     # Replace the LLM-generated evidence with the exact evidence supplied by the user.
-    # This prevents the model from inventing evidence.
     result["evidence"] = list(available_evidence)
 
     # Combine the experience and project information into one searchable string.

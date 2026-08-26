@@ -42,17 +42,3 @@ def save_artifact(artifact):
      # Return the generated ID so it can be added to the final result.
     return artifact_id
 
-
-def get_artifact(artifact_id):
-    initialize_database()
-    with sqlite3.connect(DATABASE_PATH) as connection:
-        # Find the artifact that matches the supplied ID.
-        #
-        # `?` safely inserts the ID into the SQL query and helps
-        # prevent SQL-injection problems.
-        row = connection.execute(
-            "SELECT artifact_json FROM proof_artifacts WHERE id = ?", (artifact_id,)
-        ).fetchone()
-
-    # If a record was found, convert its JSON text back into a dictionary, else return NONE
-    return json.loads(row[0]) if row else None
