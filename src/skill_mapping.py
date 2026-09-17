@@ -58,6 +58,7 @@ def map_skills(
     experience,
     project_description,
     evidence,
+    rag_context=None,
 ):
     # Combine the experience and project description into searchable text.
     source = f"{experience} {project_description}"
@@ -76,6 +77,16 @@ def map_skills(
 
     # Normalize role skills using the same rules.
     role_skills = [normalize_skill(skill) for skill in role_skills]
+
+    # Add only standards that match the target role or a claimed skill. RAG
+    # provides context; the proof-status rules below remain unchanged.
+    retrieved_skills = [
+        normalize_skill(item["skill"])
+        for item in (rag_context or {}).get("sources", [])
+        if item.get("skill")
+        and (item.get("role_match", 0) > 0 or item.get("claimed_skill_match", False))
+    ]
+    role_skills.extend(retrieved_skills)
 
     # Combine claimed skills and role-required skills.
     combined_skills = claimed_skills + role_skills
@@ -131,7 +142,7 @@ def map_skills(
             strength = "Weak"
             level = "L1"
 
-            reason = ("The user claimed this skill, but the supplied work does not demonstrate it.")
+            reason = ("The user claimed this skill, but the supplied work does not demonstrate it and no evidence.")
 
         else:
             # The role expects the skill, but it was not claimed
@@ -151,6 +162,14 @@ def map_skills(
                 "evidence_strength": strength,
                 "evidence_sources": (list(evidence) if demonstrated else []),
                 "reason": reason,})
+        mappings[-1]["rag_standard"] = next(
+            (
+                item["standard"]
+                for item in (rag_context or {}).get("sources", [])
+                if item.get("skill", "").casefold() == skill.casefold()
+            ),
+            "",
+        )
 
     # Return the completed mapping.
     return mappings

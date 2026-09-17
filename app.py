@@ -8,7 +8,7 @@ from src.pipeline import run_proof_pipeline #Import the main Proof Builder pipel
 # Configure the browser tab and page layout.
 st.set_page_config(page_title="PROVE Proof Builder", page_icon="✅", layout="wide")
 st.title("PROVE - Proof Builder & Evidence Intelligence")
-st.caption("Local AI extraction with Gemma 2 through Ollama. Your input stays on your computer.")
+st.caption("Local Gemma 2 extraction plus FAISS RAG over role/skill standards. Your input stays on your computer.")
 
 # Create a form to collect the user's career information.
 with st.form("proof_form"):
@@ -73,13 +73,24 @@ if submitted:
 if "result" in st.session_state:
     result = st.session_state["result"]  # Get latest saved result.
 
-    # Divide the result into five easy-to-navigate tabs.
-    tabs = st.tabs(["Skill map", "Quality", "Proof gaps", "Proof plan", "Final artifact"])
+    # RAG is shown separately so users can inspect the retrieved sources.
+    tabs = st.tabs(["RAG context", "Skill map", "Quality", "Proof gaps", "Proof plan", "Final artifact"])
 
-    with tabs[0]:     # Tab 1: Display skills and their proof statuses.
+    with tabs[0]:
+        rag = result["rag_context"]
+        if rag["status"] == "success":
+            st.write(f"Embedding model: {rag['embedding_model']}")
+            st.write(f"Retrieval: {rag['retrieval']}")
+            st.write(f"Reranking: {rag['reranking']}")
+            st.dataframe(rag["sources"], use_container_width=True)
+        else:
+            st.warning("RAG was unavailable. The original deterministic pipeline continued safely.")
+            st.caption(rag.get("message", "Unknown RAG error"))
+
+    with tabs[1]:     # Display skills and their proof statuses.
         st.dataframe(result["skills_demonstrated"], use_container_width=True)
 
-    with tabs[1]:     # Tab 2: Display the overall quality label and score.
+    with tabs[2]:     # Display the overall quality label and score.
         st.metric("Overall evidence quality", 
                   result["evidence_quality"]["overall_label"], 
                   result["evidence_quality"]["overall_score"])
@@ -90,10 +101,10 @@ if "result" in st.session_state:
             if isinstance(score, (int, float)) 
             and name != "overall_score"})
         
-    with tabs[2]:  # Tab 3: Display weak or missing proof areas.
+    with tabs[3]:  # Display weak or missing proof areas.
         st.dataframe(result["proof_gaps"], use_container_width=True)
 
-    with tabs[3]:   # Tab 4: Display one expandable proof plan for each skill.
+    with tabs[4]:   # Display one expandable proof plan for each skill.
          for item in result["proof_plan"]:
             title = (
                 f"{item['proof_gap']} - "
@@ -102,7 +113,7 @@ if "result" in st.session_state:
             with st.expander(title):
                 st.write(item)
 
-    with tabs[4]:      # Tab 5: Display and download the complete artifact.
+    with tabs[5]:      # Display and download the complete artifact.
         st.json(result)            # Convert the final artifact into formatted JSON.
 
         # Allow the user to download the artifact as a JSON file.

@@ -1,11 +1,8 @@
+# This file creates a structured improvement plan for skills that are not yet proven.
+#  It recommends deliverables such as a GitHub repository, README, dataset, notebook, dashboard, and outcome report.
+
 def generate_proof_plan(proof_gaps, recommendations):
-    # Create a dictionary that connects each skill to its recommended action.
-    #
-    # Example:
-    # {
-    #     "Python": "Create a Python analysis project",
-    #     "SQL": "Add SQL queries to a GitHub repository"
-    # }
+   
     recommendation_by_skill = {x["skill"]: x["recommended_action"] for x in recommendations}
     plans = []     #  an empty list to store the proof plans.
 

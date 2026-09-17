@@ -2,11 +2,14 @@ import json
 import unittest
 from unittest.mock import patch
 
+import numpy as np
+
 from src.llm_extraction import extract_evidence_with_llm
 from src.models import ProofInput
 from src.proof_gaps import detect_proof_gaps
 from src.scoring import calculate_evidence_quality
 from src.skill_mapping import map_skills
+from src.rag_retrieval import RoleSkillRetriever, faiss as faiss_library
 
 
 # Create a fake LLM message for testing.
@@ -31,6 +34,53 @@ class FakeResponse:
 
 
 class CoreTests(unittest.TestCase):
+
+    def test_rag_context_does_not_override_proof_status_rules(self):
+        rag_context = {
+            "sources": [{
+                "skill": "RAG",
+                "standard": "Show retrieval and evaluation evidence.",
+                "role_match": 1.0,
+                "claimed_skill_match": False,
+            }]
+        }
+        mapped = map_skills(
+            "GenAI Engineer",
+            ["Python"],
+            "I created a Python application.",
+            "Local application",
+            [],
+            rag_context,
+        )
+        by_skill = {item["skill"]: item for item in mapped}
+        self.assertEqual(by_skill["RAG"]["status"], "Unproven")
+        self.assertEqual(by_skill["RAG"]["rag_standard"], "Show retrieval and evaluation evidence.")
+
+    @unittest.skipIf(faiss_library is None, "FAISS is unavailable")
+    def test_faiss_retrieval_and_reranking(self):
+        def fake_embedder(texts):
+            vectors = []
+            for text in texts:
+                lowered = text.casefold()
+                vectors.append([
+                    float("rag" in lowered or "retrieval" in lowered),
+                    float("sql" in lowered),
+                    float("python" in lowered),
+                    0.1,
+                ])
+            values = np.asarray(vectors, dtype="float32")
+            norms = np.linalg.norm(values, axis=1, keepdims=True)
+            return values / np.maximum(norms, 1e-8)
+
+        retriever = RoleSkillRetriever(embedder=fake_embedder)
+        results = retriever.retrieve(
+            "GenAI Engineer RAG retrieval FAISS",
+            "GenAI Engineer",
+            ["RAG"],
+            top_k=3,
+        )
+        self.assertEqual(results[0]["skill"], "RAG")
+        self.assertGreaterEqual(results[0]["rerank_score"], results[1]["rerank_score"])
 
     @patch(
         "src.llm_extraction.ollama.chat",

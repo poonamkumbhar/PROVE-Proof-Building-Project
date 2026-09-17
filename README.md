@@ -21,15 +21,16 @@ The user enters following information:
 The system then uses:
 
 1. the local `gemma2:2b` model through Ollama to understand the written experience
-2. extracts actions, tools, outputs, outcomes and ownership
-3. validates the extracted structure with Pydantic
-4. maps claimed and role-required skills
-5. classifies each skill as **Proven**, **Implied**, **Claimed** or **Unproven**
-6. calculates seven evidence-quality scores
-7. identifies proof gaps and creates recommendations
-8. generates a practical proof plan
-9. saves the final artifact in SQLite 
-10. allows the user to download the artifact as JSON.
+2. local FAISS RAG over curated role/skill standards to ground expectations and recommendations
+3. extracts actions, tools, outputs, outcomes and ownership
+4. validates the extracted structure with Pydantic
+5. maps claimed and role-required skills
+6. classifies each skill as **Proven**, **Implied**, **Claimed** or **Unproven**
+7. calculates seven evidence-quality scores
+8. identifies proof gaps and creates recommendations
+9. generates a practical proof plan
+10. saves the final artifact in SQLite 
+11. allows the user to download the artifact as JSON.
 
 The LLM is used for understanding language. Python rules control the final evidence, skill status and scores. This reduces the risk of invented facts.
 
@@ -51,6 +52,34 @@ The LLM is used for understanding language. Python rules control the final evide
 - SQLite persistence
 - JSON download
 - Automated unit tests with a mocked LLM response
+- FAISS retrieval with transparent second-stage reranking
+- Retrieved source IDs and scores in the final artifact
+- 25-query labelled RAG evaluation dataset and evaluation script
+- Safe RAG fallback that preserves the original pipeline
+
+## RAG setup and evaluation
+
+Install dependencies and pull both local models:
+
+```powershell
+python -m pip install -r requirements.txt
+ollama pull gemma2:2b
+ollama pull nomic-embed-text
+```
+
+Run the application:
+
+```powershell
+python -m streamlit run app.py
+```
+
+Run retrieval evaluation:
+
+```powershell
+python evaluate_rag.py
+```
+
+See `RAG_HALLUCINATION_AND_EVALUATION.md` for hallucination risks, controls, pipeline placement and metric explanations.
 
 ## Proof-status meaning
 
@@ -89,6 +118,9 @@ The average becomes the overall evidence-quality score:
 | Streamlit | User interface |
 | Ollama | Runs the LLM locally |
 | Gemma 2 2B | Extracts structured meaning from free text |
+| nomic-embed-text | Creates local query and document embeddings |
+| FAISS | Retrieves similar role and skill standards |
+| NumPy | Handles embedding vectors |
 | Pydantic | Validates input and LLM output |
 | SQLite | Stores generated proof artifacts |
 | unittest | Runs automated tests |
@@ -96,17 +128,21 @@ The average becomes the overall evidence-quality score:
 ## Project structure
 
 ```text
-PROVE_Proof_Builder_Updated/
+Proof_Builder_Project/
 ├── app.py                         # Streamlit application
+├── evaluate_rag.py                # Offline RAG evaluation
 ├── requirements.txt              # Python dependencies
 ├── README.md                      # Setup and project documentation
 ├── architecture.md                # Architecture and design decisions
 ├── data/
 │   ├── prove_evidence.json        # Sample evidence dataset
+│   ├── role_skill_standards.json  # Curated RAG knowledge base
+│   ├── rag_evaluation.json        # Labelled retrieval test set
 │   └── proof_builder.db           # SQLite database created/used locally
 ├── src/
 │   ├── models.py                  # Pydantic data models
 │   ├── llm_extraction.py          # Gemma extraction and guardrails
+│   ├── rag_retrieval.py           # FAISS retrieval and reranking
 │   ├── skill_mapping.py           # Skill aliases and proof statuses
 │   ├── scoring.py                 # Seven evidence-quality scores
 │   ├── proof_gaps.py              # Proof-gap records
@@ -126,12 +162,14 @@ flowchart TD
     A["User Input on Streamlit"] --> B["Pydantic input validation"]
     B --> C["LLM Extraction through Ollama"]
     C --> D["Validated extraction or fallback"]
-    D --> E["Skills to evidence mapping"]
-    E --> F["Evidence quality scoring"]
-    F --> G["Proof Gaps Classification"]
-    G --> H["Proof recommendation and plan"]
-    H --> I["JSON artifact and SQLite"]
-    I --> J["Display output in streamlit"]
+    D --> E["Ollama embeddings and FAISS retrieval"]
+    E --> F["Deterministic reranking"]
+    F --> G["Skills to evidence mapping"]
+    G --> H["Evidence quality scoring"]
+    H --> I["Proof Gaps Classification"]
+    I --> J["Grounded recommendation and plan"]
+    J --> K["JSON artifact and SQLite"]
+    K --> L["Display output in Streamlit"]
 ```
 
 
@@ -167,6 +205,7 @@ Install Ollama from [ollama.com/download](https://ollama.com/download), then run
 
 ```powershell
 ollama pull gemma2:2b
+ollama pull nomic-embed-text
 ```
 
 Check that the model is available:
@@ -352,13 +391,15 @@ Current evaluation cases:
 | All proof statuses | Proven, Implied, Claimed and Unproven can all be represented. |
 | Seven quality dimensions | Every required scoring dimension is returned. |
 | Unsupported percentage | A percentage without impact evidence is reported as unsupported. |
+| RAG boundary | Retrieved standards cannot override deterministic proof status. |
+| FAISS reranking | Relevant RAG standard is ranked above weaker candidates. |
 
 Expected result:
 
 ```text
 ......
 ----------------------------------------------------------------------
-Ran 6 tests
+Ran 8 tests
 
 OK
 ```
@@ -379,6 +420,7 @@ The application itself uses the local `gemma2:2b` model to extract structured in
 - **Direct Python pipeline instead of an API:** the current application does not require FastAPI or external endpoints.
 - **Local Gemma through Ollama:** improves privacy and removes the need for a paid cloud LLM API.
 - **Python guardrails after LLM extraction:** prevent the model from adding evidence and identify unsupported percentages.
+- **RAG as enrichment only:** retrieved standards improve role context and recommendations but do not control proof status or scores.
 - **SQLite:** appropriate for a small local demonstration and requires no separate database server.
 
 ## Current limitations
@@ -389,6 +431,7 @@ The application itself uses the local `gemma2:2b` model to extract structured in
 - The local 2B model may miss complex or indirect details.
 - Skill depth is estimated using simple rules, including description length.
 - Recency remains neutral when no experience date is supplied.
+- The curated RAG knowledge base and 25-query evaluation set are intentionally small and should be expanded.
 - Authentication, file uploads and multi-user access are not implemented.
 - Human review is still required before treating an artifact as verified career evidence.
 

@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from src.models import ExtractedEvidence
 
-
 def _fallback(message):
     # Create a safe response when the LLM fails.
     # Instead of stopping the whole application, we return an empty ExtractedEvidence object

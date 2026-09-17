@@ -4,6 +4,7 @@ from src.proof_artifact import create_proof_artifact
 from src.proof_gaps import detect_proof_gaps
 from src.proof_plan import generate_proof_plan
 from src.proof_recommendations import generate_recommendations
+from src.rag_retrieval import retrieve_role_skill_context
 from src.scoring import calculate_evidence_quality
 from src.skill_mapping import map_skills
 from src.storage import save_artifact
@@ -27,6 +28,10 @@ def run_proof_pipeline(record):
         record.impact_evidence,
     )
 
+    # Retrieve role/skill standards. If RAG is unavailable, it returns a
+    # fallback result and the original deterministic pipeline continues.
+    rag_context = retrieve_role_skill_context(record)
+
     # Check how strongly each claimed skill is supported.
     skills = map_skills(
         record.target_role,
@@ -34,6 +39,7 @@ def run_proof_pipeline(record):
         record.experience,
         record.project_description,
         record.available_evidence,
+        rag_context,
     )
 
     # Calculate evidence-quality scores.
@@ -43,7 +49,7 @@ def run_proof_pipeline(record):
     gaps = detect_proof_gaps(skills)
 
     # Recommend ways to improve weak evidence.
-    recommendations = generate_recommendations(gaps)
+    recommendations = generate_recommendations(gaps, rag_context)
 
     # Create a step-by-step proof plan.
     plan = generate_proof_plan(gaps, recommendations)
@@ -57,6 +63,7 @@ def run_proof_pipeline(record):
         gaps,
         recommendations,
         plan,
+        rag_context,
     )
 
     # Save the artifact and store its ID.
